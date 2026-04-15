@@ -616,6 +616,9 @@ function handleLogin() {
     if(!id) { showNotification('Please enter a User ID', 'user-notification', 3000); return; }
 
     if(id === 'chandru' && pass === 'krishi') {
+        currentUser.id = 'chandru';
+        currentUser.name = 'Owner';
+        saveState();
         navigate('owner');
         if(orders.some(o => o.status === 'pending')) {
             showNotification('<h3>🔔 New Order Received!</h3>Check your pending action board.', 'owner-notification');
@@ -855,10 +858,35 @@ function renderTracking() {
                 </div>
             </div>
             ${timelineHtml}
+            ${o.status === 'delivered' ? 
+                (!o.feedback ? `
+                <div style="background: var(--white); padding: 15px; margin-top: 20px; border-radius: 8px; border: 1px dashed var(--amber);">
+                    <h4 style="margin-bottom: 10px; color: var(--brown);">How did you like the Honey? 🍯</h4>
+                    <textarea id="fb-text-${o.id}" rows="2" placeholder="Tell us about the taste, packaging, delivery..." style="width: -webkit-fill-available; border-radius: 6px; border: 1px solid #ccc; padding: 10px; font-family: inherit; margin-bottom: 10px; resize: vertical;"></textarea>
+                    <button class="btn-primary" onclick="submitFeedback('${o.id}')" style="padding: 8px 15px; font-size: 0.9rem;">Submit Feedback ⭐️</button>
+                </div>` : `
+                <div style="background: var(--white); padding: 15px; margin-top: 20px; border-radius: 8px; border: 1px dashed #4CAF50;">
+                    <h4 style="margin-bottom: 5px; color: #2E7D32;">Feedback Submitted ⭐️</h4>
+                    <p style="font-size: 0.9rem; color: var(--brown-soft); font-style: italic;">"${o.feedback}"</p>
+                </div>`) 
+            : ''}
         </div>`;
     });
     
     list.innerHTML = html;
+}
+
+function submitFeedback(id) {
+    const box = document.getElementById('fb-text-' + id);
+    if(!box || !box.value.trim()) return;
+    
+    const targetOrder = orders.find(o => o.id === id);
+    if(targetOrder) {
+        targetOrder.feedback = box.value.trim();
+        saveState();
+        renderTracking();
+        showNotification("Thank you for your feedback! 🍯");
+    }
 }
 
 // Owner Features
@@ -875,7 +903,7 @@ function renderOrders() {
     if(pendingMods.length === 0) {
         listPending.innerHTML = '<p style="color:var(--brown-soft); font-size:1rem;">All caught up! No pending orders.</p>';
     } else {
-        pendingMods.forEach(o => listPending.appendChild(createOrderHTML(o)));
+        pendingMods.slice().reverse().forEach(o => listPending.appendChild(createOrderHTML(o)));
     }
 
     if(historyMods.length === 0) {
@@ -894,9 +922,10 @@ function createOrderHTML(o) {
             <h4>Order ${o.id} <span class="badge ${o.status}">${o.status}</span></h4>
             <p><strong>Customer:</strong> ${o.name} &lt;${o.userEmail}&gt;</p>
             <p><strong>Address:</strong> ${o.address}</p>
-            <p><strong>Item:</strong> ${o.product} (${o.quantity}) - <strong>₹${o.price}</strong></p>
+            <p><strong>Item:</strong> ${o.product || 'Raw Honey'} (${o.quantity || o.items.length + ' pcs'}) - <strong>₹${o.price}</strong></p>
             <p style="font-size: 0.85rem; color: #2E7D32; font-weight: bold; margin-top: 5px;">ETA Constraint: ${o.eta}</p>
             <p style="font-size: 0.8rem; color: var(--brown-soft);">Placed at: ${o.time} via ${o.payment}</p>
+            ${o.feedback ? `<p style="margin-top: 10px; padding: 10px; background: #fff8e1; border-left: 3px solid #ffb300; font-style: italic; font-size: 0.9rem; border-radius: 4px;"><strong>Feedback:</strong> "${o.feedback}"</p>` : ''}
         </div>
         <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
             <label style="font-size:0.8rem; font-weight:bold; color:var(--brown-soft);">Change Status:</label>
